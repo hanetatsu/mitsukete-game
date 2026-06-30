@@ -44,6 +44,9 @@ const DIFFICULTY = {
   hard:   { time: 120, targets: 8, total: 230, size: 2.8, jitter: 1.00, rotate: 30, opacity: 0.85 }
 };
 
+/* 同じ探し物を これだけの秒数 見つけられないと ヒントを出す */
+const HINT_AFTER = 40;
+
 /* ---------- ゲーム状態 ---------- */
 const state = {
   diff: "easy",
@@ -54,6 +57,8 @@ const state = {
   targets: [],
   foundTotal: 0,
   targetTotal: 0,
+  hintSec: 0,        // 今の探し物を さがし始めてからの経過秒
+  hintActive: false, // ヒント表示中かどうか
   running: false
 };
 
@@ -196,6 +201,9 @@ function onObjectClick(ev) {
     el.classList.add("correct");
     showScorePop(el, "+" + gained);
     sound.correct();
+    // 次の探し物のためにヒントをリセット
+    state.hintSec = 0;
+    clearHint();
     updateHud();
     renderRemaining();
 
@@ -248,6 +256,25 @@ function renderRemaining() {
 }
 
 /* =========================================================
+   ヒント（40秒みつからないと さがしものが光る）
+   ========================================================= */
+function activateHint() {
+  const cur = state.targets.find((t) => !t.found);
+  if (!cur) return;
+  const els = Array.from(field.querySelectorAll('.obj[data-target="1"]'))
+    .filter((el) => el.dataset.emoji === cur.e && !el.classList.contains("correct"));
+  if (!els.length) return;
+  els.forEach((el) => el.classList.add("hint-glow"));
+  $("hint-msg").classList.remove("hidden");
+  state.hintActive = true;
+}
+function clearHint() {
+  field.querySelectorAll(".obj.hint-glow").forEach((el) => el.classList.remove("hint-glow"));
+  $("hint-msg").classList.add("hidden");
+  state.hintActive = false;
+}
+
+/* =========================================================
    HUD・タイマー
    ========================================================= */
 function updateHud() {
@@ -261,6 +288,9 @@ function startTimer() {
   state.timerId = setInterval(() => {
     if (!state.running) return;
     state.timeLeft--;
+    // 今の探し物の経過時間。40秒でヒントを出す
+    state.hintSec++;
+    if (!state.hintActive && state.hintSec >= HINT_AFTER) activateHint();
     if (state.timeLeft <= 5 && state.timeLeft > 0) sound.tick();
     updateHud();
     if (state.timeLeft <= 0) endGame(false);
@@ -276,6 +306,8 @@ function startGame() {
   state.score = 0;
   state.combo = 0;
   state.timeLeft = cfg.time;
+  state.hintSec = 0;
+  state.hintActive = false;
   state.running = true;
 
   startScreen.classList.add("hidden");
@@ -284,6 +316,7 @@ function startGame() {
   promptBar.classList.remove("hidden");
   field.classList.remove("hidden");
 
+  clearHint();
   buildBoard();
   updateHud();
   startTimer();
