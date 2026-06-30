@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>みつけてゲーム！</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- ===== ヘッダー（ゲーム中のHUD） ===== -->
+    <header id="hud" class="hidden">
+      <div class="hud-item">
+        <span class="hud-label">スコア</span>
+        <span id="score" class="hud-value">0</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">のこり時間</span>
+        <span id="time" class="hud-value">0</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">みつけた</span>
+        <span id="found-count" class="hud-value">0 / 0</span>
+      </div>
+      <button id="quit-btn" class="mini-btn" title="やめる">✕</button>
+    </header>
+
+    <!-- ===== お題＆のこりリスト ===== -->
+    <section id="prompt-bar" class="hidden">
+      <div id="prompt">
+        <span class="prompt-text">「</span>
+        <span id="prompt-emoji">❓</span>
+        <span id="prompt-name">？</span>
+        <span class="prompt-text">」をさがそう！</span>
+      </div>
+      <ul id="remaining-list"></ul>
+    </section>
+
+    <!-- ===== プレイフィールド ===== -->
+    <main id="field" class="hidden"></main>
+
+    <!-- ===== スタート画面 ===== -->
+    <div id="start-screen" class="overlay">
+      <div class="panel">
+        <h1 class="title">🔍 みつけてゲーム！</h1>
+        <p class="subtitle">お題のものを じかんないに さがしてクリック！</p>
+
+        <p class="section-label">なんいどを えらんでね</p>
+        <div class="difficulty-group">
+          <button class="diff-btn selected" data-diff="easy">
+            <span class="diff-emoji">🟢</span>
+            <span class="diff-name">しょきゅう</span>
+            <span class="diff-desc">大きくて さがしやすい</span>
+          </button>
+          <button class="diff-btn" data-diff="normal">
+            <span class="diff-emoji">🟡</span>
+            <span class="diff-name">ちゅうきゅう</span>
+            <span class="diff-desc">小さく ふえる</span>
+          </button>
+          <button class="diff-btn" data-diff="hard">
+            <span class="diff-emoji">🔴</span>
+            <span class="diff-name">じょうきゅう</span>
+            <span class="diff-desc">たくさん＆まぎれる</span>
+          </button>
+        </div>
+
+        <button id="start-btn" class="big-btn">▶ スタート</button>
+        <p class="hint">ヒント：まちがえると じかんが すこし へるよ！</p>
+      </div>
+    </div>
+
+    <!-- ===== 結果画面 ===== -->
+    <div id="result-screen" class="overlay hidden">
+      <div class="panel">
+        <h1 id="result-title" class="title">けっか</h1>
+        <div class="result-stats">
+          <div class="stat">
+            <span class="stat-label">スコア</span>
+            <span id="result-score" class="stat-value">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">みつけた数</span>
+            <span id="result-found" class="stat-value">0</span>
+          </div>
+        </div>
+        <p id="result-message" class="result-message"></p>
+        <div class="result-buttons">
+          <button id="retry-btn" class="big-btn">🔄 もういちど</button>
+          <button id="home-btn" class="big-btn secondary">🏠 タイトルへ</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
