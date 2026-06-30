@@ -174,6 +174,68 @@ body {
     linear-gradient(160deg, #eafff0, #e3f2ff 60%, #fff0f6);
 }
 
+/* ===== ステージごとの背景（すすむほど ふくざつ＝むずかしそうに） ===== */
+/* 1: いちばん シンプル */
+#field.stage-bg-1 { background: linear-gradient(160deg, #fef6e4, #ffe0ec); }
+/* 2: やさしい2色グラデ */
+#field.stage-bg-2 { background: linear-gradient(160deg, #e3fcef, #dbeafe); }
+/* 3: 大きめの水玉 */
+#field.stage-bg-3 {
+  background:
+    radial-gradient(circle, #ffe08a 17%, transparent 18%) 0 0 / 66px 66px,
+    linear-gradient(160deg, #fff3d6, #ffe6f0);
+}
+/* 4: パステルの ななめストライプ */
+#field.stage-bg-4 {
+  background: repeating-linear-gradient(45deg, #ffd6e8 0 26px, #d6ecff 26px 52px);
+}
+/* 5: チェック模様 */
+#field.stage-bg-5 {
+  background: repeating-conic-gradient(#fde7b0 0% 25%, #cfeffd 0% 50%) 0 0 / 58px 58px;
+}
+/* 6: 2色の水玉（やや密） */
+#field.stage-bg-6 {
+  background:
+    radial-gradient(circle, #ffc8dd 16%, transparent 17%) 0 0 / 38px 38px,
+    radial-gradient(circle, #bde0fe 16%, transparent 17%) 19px 19px / 38px 38px,
+    linear-gradient(160deg, #ffffff, #eef6ff);
+}
+/* 7: カラフルな紙吹雪（4色） */
+#field.stage-bg-7 {
+  background:
+    radial-gradient(circle, #ffadad 11%, transparent 12%) 0 0 / 30px 30px,
+    radial-gradient(circle, #ffd6a5 11%, transparent 12%) 15px 8px / 30px 30px,
+    radial-gradient(circle, #caffbf 11%, transparent 12%) 8px 18px / 30px 30px,
+    radial-gradient(circle, #9bf6ff 11%, transparent 12%) 22px 22px / 30px 30px,
+    #fffef0;
+}
+/* 8: ストライプ＋水玉（ごちゃつき） */
+#field.stage-bg-8 {
+  background:
+    repeating-linear-gradient(45deg, rgba(255,160,190,0.55) 0 16px, transparent 16px 32px),
+    radial-gradient(circle, #bdb2ff 13%, transparent 14%) 0 0 / 26px 26px,
+    linear-gradient(160deg, #fff0f6, #eeeeff);
+}
+/* 9: 小さな5色の点（まぎれる） */
+#field.stage-bg-9 {
+  background:
+    radial-gradient(circle, #ff7b9c 9%, transparent 10%) 0 0 / 22px 22px,
+    radial-gradient(circle, #ffd166 9%, transparent 10%) 11px 6px / 22px 22px,
+    radial-gradient(circle, #06d6a0 9%, transparent 10%) 6px 13px / 22px 22px,
+    radial-gradient(circle, #4cc9f0 9%, transparent 10%) 15px 17px / 22px 22px,
+    #ffffff;
+}
+/* 10: 最高難度。ぎっしりカラフル＋ストライプ */
+#field.stage-bg-10 {
+  background:
+    radial-gradient(circle, #ff6b6b 8%, transparent 9%) 0 0 / 17px 17px,
+    radial-gradient(circle, #ffd93d 8%, transparent 9%) 8px 4px / 17px 17px,
+    radial-gradient(circle, #6bcb77 8%, transparent 9%) 4px 10px / 17px 17px,
+    radial-gradient(circle, #4d96ff 8%, transparent 9%) 13px 13px / 17px 17px,
+    radial-gradient(circle, #c77dff 8%, transparent 9%) 2px 7px / 17px 17px,
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.25) 0 8px, transparent 8px 16px);
+}
+
 .obj {
   position: absolute;
   transform: translate(-50%, -50%) rotate(var(--rot, 0deg));
@@ -294,6 +356,100 @@ body {
   color: #8a7a95;
   margin-bottom: 18px;
 }
+
+.info-box {
+  background: #fff7e6;
+  border: 2px dashed var(--yellow);
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.info-box b { color: var(--pink); font-size: 1.15em; }
+
+/* ===== 表/裏タブ ===== */
+#world-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.tab-btn {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 14px;
+  font-weight: 900;
+  font-size: 15px;
+  background: #eee;
+  color: #9a8aa5;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.tab-btn.selected { background: var(--pink); color: #fff; transform: scale(1.04); }
+.tab-btn.back-open.selected { background: #6a3d9a; }
+.tab-btn:disabled { background: #eee; color: #c5bdd0; cursor: not-allowed; }
+
+/* ===== ステージ選択グリッド ===== */
+#stage-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin: 18px 0 12px;
+}
+.stage-cell {
+  aspect-ratio: 1 / 1;
+  border: none;
+  border-radius: 16px;
+  font-size: clamp(18px, 6vw, 26px);
+  font-weight: 900;
+  color: #fff;
+  background: linear-gradient(135deg, var(--blue), var(--purple));
+  box-shadow: 0 4px 0 #3a8fc0;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.08s;
+}
+.stage-cell:active { transform: translateY(3px); box-shadow: 0 1px 0 #3a8fc0; }
+.stage-cell.cleared {
+  background: linear-gradient(135deg, var(--green), var(--yellow));
+  box-shadow: 0 4px 0 #5bb33f;
+}
+.stage-cell.locked {
+  background: #e6e1ec;
+  color: #b3a9c0;
+  box-shadow: 0 4px 0 #cfc7da;
+  cursor: not-allowed;
+}
+.stage-cell .cell-star {
+  position: absolute;
+  top: 1px;
+  right: 4px;
+  font-size: 0.55em;
+}
+/* 裏ステージのセルは むらさき系 */
+.stage-cell.back {
+  background: linear-gradient(135deg, #7b2ff7, #b14be0);
+  box-shadow: 0 4px 0 #5a1fb0;
+}
+.stage-cell.back.cleared {
+  background: linear-gradient(135deg, #b14be0, var(--yellow));
+  box-shadow: 0 4px 0 #8a2fb0;
+}
+
+/* ===== 裏モード：フィールドに うす暗い演出 ===== */
+#field.ura::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(circle at 50% 40%, rgba(40,0,70,0.12), rgba(8,0,30,0.5));
+}
+#field.ura .obj { z-index: 1; }
 
 .section-label {
   font-weight: bold;
