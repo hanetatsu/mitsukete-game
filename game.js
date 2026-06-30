@@ -4,8 +4,10 @@
    みつけてゲーム！  game.js
    - 外部ライブラリなし（HTML/CSS/JSのみ）
    - 効果音は Web Audio API でその場で生成（音声ファイル不要）
-   - 1画面の中から お題のものを探す。
-     はずれの物体（デコイ）を画面いっぱいに密集させて紛れさせる。
+   - 表(おもて)ステージ 1〜10。クリアで次が解放。
+   - 表を全クリアすると「裏(うら)ステージ 1〜10」が解放。
+     裏は すべての物体が 動きまわる。
+   - 進み具合は端末に保存。
    ========================================================= */
 
 /* ---------- さがしものの絵文字（名前つき） ---------- */
@@ -32,24 +34,47 @@ const ITEMS = [
   { e: "🍫", n: "チョコ" }, { e: "🧁", n: "カップケーキ" }, { e: "🍕", n: "ピザ" }
 ];
 
-/* ---------- 難易度設定 ----------
-   total   = 画面に置く物体の総数（デコイ＋ターゲット）
-   targets = 探すものの数
-   size    = 絵文字の大きさ(vmin)
-   jitter  = 配置のばらつき（大きいほど重なって紛れる）
-   ----------------------------------------------------- */
-const DIFFICULTY = {
-  easy:   { time: 60,  targets: 4, total: 55,  size: 5.6, jitter: 0.50, rotate: 6,  opacity: 1.0 },
-  normal: { time: 85,  targets: 6, total: 120, size: 3.9, jitter: 0.70, rotate: 16, opacity: 0.95 },
-  hard:   { time: 120, targets: 8, total: 230, size: 2.8, jitter: 1.00, rotate: 30, opacity: 0.85 }
-};
-
-/* 同じ探し物を これだけの秒数 見つけられないと ヒントを出す */
+/* ---------- 設定 ---------- */
+const STAGE_COUNT = 10;
 const HINT_AFTER = 40;
+const SAVE_KEY = "mitsukete_progress_v2";
+
+/* 表ステージの難易度（進むほど難しく） */
+function frontConfig(stage) {
+  const t = (stage - 1) / (STAGE_COUNT - 1);
+  const targets = Math.round(4 + t * 8);        // 4 〜 12
+  const total   = Math.round(30 + t * 240);     // 30 〜 270
+  const size    = +(6.2 - t * 3.6).toFixed(2);  // 6.2 〜 2.6
+  const jitter  = +(0.30 + t * 0.70).toFixed(2);// 0.30 〜 1.00
+  const rotate  = Math.round(t * 34);
+  const opacity = +(1 - t * 0.18).toFixed(2);
+  const time    = Math.round(30 + targets * 6 + total * 0.05);
+  return { targets, total, size, jitter, rotate, opacity, time, moving: false, speed: 0 };
+}
+
+/* 裏ステージ：数は少なめだが すべて動く */
+function backConfig(stage) {
+  const t = (stage - 1) / (STAGE_COUNT - 1);
+  const targets = Math.round(4 + t * 8);          // 4 〜 12
+  const total   = Math.round(22 + t * 98);        // 22 〜 120
+  const size    = +(6.0 - t * 3.2).toFixed(2);    // 6.0 〜 2.8
+  const jitter  = +(0.25 + t * 0.55).toFixed(2);
+  const rotate  = Math.round(t * 30);
+  const opacity = +(1 - t * 0.15).toFixed(2);
+  const speed   = +(0.06 + t * 0.30).toFixed(3);  // 1フレームあたりの移動量(%)
+  const time    = Math.round(45 + targets * 7 + total * 0.06); // 動くぶん 多め
+  return { targets, total, size, jitter, rotate, opacity, time, moving: true, speed };
+}
+
+function getConfig(world, stage) {
+  return world === "back" ? backConfig(stage) : frontConfig(stage);
+}
 
 /* ---------- ゲーム状態 ---------- */
 const state = {
-  diff: "easy",
+  world: "front",        // 今あそんでいる世界
+  selectWorld: "front",  // 選択画面で表示中のタブ
+  stage: 1,
   score: 0,
   combo: 0,
   timeLeft: 0,
@@ -57,10 +82,42 @@ const state = {
   targets: [],
   foundTotal: 0,
   targetTotal: 0,
-  hintSec: 0,        // 今の探し物を さがし始めてからの経過秒
-  hintActive: false, // ヒント表示中かどうか
-  running: false
+  hintSec: 0,
+  hintActive: false,
+  running: false,
+  moving: false,
+  movers: [],
+  progress: {
+    front: { unlocked: 1, cleared: [] },
+    back:  { unlocked: 1, cleared: [] },
+    backOpen: false
+  }
 };
+const wp = (world) => state.progress[world];
+
+/* ---------- 保存・読み込み ---------- */
+function loadProgress() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return;
+    const p = JSON.parse(raw);
+    const norm = (o) => ({
+      unlocked: Math.min(STAGE_COUNT, Math.max(1, (o && o.unlocked) || 1)),
+      cleared: o && Array.isArray(o.cleared) ? o.cleared.filter((n) => n >= 1 && n <= STAGE_COUNT) : []
+    });
+    if (p.front || p.back) {
+      state.progress.front = norm(p.front);
+      state.progress.back = norm(p.back);
+      state.progress.backOpen = !!p.backOpen || state.progress.front.cleared.includes(STAGE_COUNT);
+    } else {
+      state.progress.front = norm(p);
+      state.progress.backOpen = state.progress.front.cleared.includes(STAGE_COUNT);
+    }
+  } catch (_) {}
+}
+function saveProgress() {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(state.progress)); } catch (_) {}
+}
 
 /* ---------- DOM ---------- */
 const $ = (id) => document.getElementById(id);
@@ -68,6 +125,8 @@ const field = $("field");
 const hud = $("hud");
 const promptBar = $("prompt-bar");
 const startScreen = $("start-screen");
+const stageSelectScreen = $("stage-select-screen");
+const stageClearScreen = $("stage-clear-screen");
 const resultScreen = $("result-screen");
 
 /* =========================================================
@@ -100,6 +159,7 @@ const sound = {
   correct() { beep(880, 0.12, "triangle", 0.25); beep(1320, 0.16, "triangle", 0.22, 0.08); },
   wrong()   { beep(160, 0.22, "sawtooth", 0.18); },
   clear()   { [523, 659, 784, 1046].forEach((f, i) => beep(f, 0.25, "triangle", 0.25, i * 0.13)); },
+  win()     { [523, 659, 784, 1046, 1318, 1568].forEach((f, i) => beep(f, 0.3, "triangle", 0.26, i * 0.14)); },
   over()    { [392, 330, 262].forEach((f, i) => beep(f, 0.3, "sine", 0.22, i * 0.18)); },
   tick()    { beep(700, 0.05, "square", 0.12); }
 };
@@ -119,25 +179,110 @@ const rand = (min, max) => min + Math.random() * (max - min);
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 /* =========================================================
+   ステージ選択画面（表/裏タブつき）
+   ========================================================= */
+function updateTabs() {
+  const open = state.progress.backOpen;
+  const tabFront = $("tab-front");
+  const tabBack = $("tab-back");
+  tabBack.disabled = !open;
+  tabBack.textContent = open ? "うら ✨" : "うら 🔒";
+  tabBack.classList.toggle("back-open", open);
+  tabFront.classList.toggle("selected", state.selectWorld === "front");
+  tabBack.classList.toggle("selected", state.selectWorld === "back");
+}
+
+function renderStageSelect() {
+  updateTabs();
+  const world = state.selectWorld;
+  const p = wp(world);
+  const grid = $("stage-grid");
+  grid.innerHTML = "";
+  for (let s = 1; s <= STAGE_COUNT; s++) {
+    const btn = document.createElement("button");
+    btn.className = "stage-cell";
+    const unlocked = s <= p.unlocked;
+    const cleared = p.cleared.includes(s);
+    if (!unlocked) {
+      btn.classList.add("locked");
+      btn.disabled = true;
+      btn.textContent = "🔒";
+    } else {
+      if (world === "back") btn.classList.add("back");
+      btn.innerHTML = '<span class="cell-num">' + s + "</span>" +
+        (cleared ? '<span class="cell-star">⭐</span>' : "");
+      if (cleared) btn.classList.add("cleared");
+      btn.addEventListener("click", () => {
+        getCtx();
+        state.world = world;
+        state.stage = s;
+        startStage();
+      });
+    }
+    grid.appendChild(btn);
+  }
+}
+
+function goToSelect() {
+  stopPlay();
+  startScreen.classList.add("hidden");
+  stageClearScreen.classList.add("hidden");
+  resultScreen.classList.add("hidden");
+  stageSelectScreen.classList.remove("hidden");
+  renderStageSelect();
+}
+
+/* =========================================================
+   うごき（裏ステージ）
+   ========================================================= */
+let rafId = null;
+let lastTs = 0;
+function startMotion() {
+  cancelAnimationFrame(rafId);
+  lastTs = 0;
+  const step = (ts) => {
+    if (!state.running || !state.moving) return;
+    if (!lastTs) lastTs = ts;
+    let dt = (ts - lastTs) / 16.67;
+    lastTs = ts;
+    if (dt > 3) dt = 3;            // タブ復帰などの大きな飛びを抑える
+    for (const m of state.movers) {
+      m.x += m.vx * dt;
+      m.y += m.vy * dt;
+      if (m.x < 4) { m.x = 4; m.vx = Math.abs(m.vx); }
+      else if (m.x > 96) { m.x = 96; m.vx = -Math.abs(m.vx); }
+      if (m.y < 5) { m.y = 5; m.vy = Math.abs(m.vy); }
+      else if (m.y > 95) { m.y = 95; m.vy = -Math.abs(m.vy); }
+      m.el.style.left = m.x + "%";
+      m.el.style.top = m.y + "%";
+    }
+    rafId = requestAnimationFrame(step);
+  };
+  rafId = requestAnimationFrame(step);
+}
+function stopMotion() {
+  cancelAnimationFrame(rafId);
+  state.moving = false;
+  state.movers = [];
+}
+
+/* =========================================================
    ボード生成
    ========================================================= */
 function buildBoard() {
-  const cfg = DIFFICULTY[state.diff];
+  const cfg = getConfig(state.world, state.stage);
   field.innerHTML = "";
+  state.movers = [];
 
-  // ターゲットを選ぶ（重複しない絵文字）
   const pool = shuffle(ITEMS);
   const targets = pool.slice(0, cfg.targets);
   const decoyPool = pool.slice(cfg.targets);
 
-  // デコイ（はずれ）を total になるまで並べる。
-  // 種類を超える分は同じ絵文字をくり返して、よりごちゃごちゃに紛れさせる。
   const decoyCount = Math.max(0, cfg.total - cfg.targets);
   const decoyBag = shuffle(decoyPool);
   const decoys = [];
   for (let i = 0; i < decoyCount; i++) decoys.push(decoyBag[i % decoyBag.length]);
 
-  // 配置セルを用意（画面を格子に分割し、ばらつきで重ねる）
   const n = cfg.total;
   const aspect = field.clientWidth / Math.max(field.clientHeight, 1);
   const cols = Math.max(1, Math.round(Math.sqrt(n * aspect)));
@@ -169,10 +314,14 @@ function buildBoard() {
     el.dataset.target = isTarget ? "1" : "0";
     el.addEventListener("pointerdown", onObjectClick);
     field.appendChild(el);
+
+    if (cfg.moving) {
+      const ang = rand(0, Math.PI * 2);
+      const v = rand(0.5, 1) * cfg.speed;
+      state.movers.push({ el, x: left, y: top, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v });
+    }
   };
 
-  // 先にデコイを配置 → あとからターゲット（ターゲットが上に来て、
-  // 密集しても完全に隠れず必ず見つけられる＝フェア）
   shuffle(decoys).forEach((it) => placeAt(it, false));
   shuffle(targets).forEach((it) => placeAt(it, true));
 
@@ -180,6 +329,15 @@ function buildBoard() {
   state.targetTotal = targets.length;
   state.foundTotal = 0;
   renderRemaining();
+
+  state.moving = cfg.moving;
+  if (cfg.moving) startMotion();
+}
+
+function setStageBackground(stage, world) {
+  for (let i = 1; i <= STAGE_COUNT; i++) field.classList.remove("stage-bg-" + i);
+  field.classList.add("stage-bg-" + stage);
+  field.classList.toggle("ura", world === "back");
 }
 
 /* =========================================================
@@ -198,18 +356,19 @@ function onObjectClick(ev) {
     const gained = 100 + (state.combo - 1) * 20;
     state.score += gained;
 
+    // 見つけたものは うごきを止める
+    state.movers = state.movers.filter((m) => m.el !== el);
+
     el.classList.add("correct");
     showScorePop(el, "+" + gained);
     sound.correct();
-    // 次の探し物のためにヒントをリセット
     state.hintSec = 0;
     clearHint();
     updateHud();
     renderRemaining();
 
-    if (state.foundTotal >= state.targetTotal) endGame(true);
+    if (state.foundTotal >= state.targetTotal) stageComplete();
   } else {
-    // 不正解（ペナルティ：時間-3秒）
     state.combo = 0;
     state.timeLeft = Math.max(0, state.timeLeft - 3);
     el.classList.remove("wrong");
@@ -220,7 +379,7 @@ function onObjectClick(ev) {
     setTimeout(() => field.classList.remove("flash-bad"), 400);
     sound.wrong();
     updateHud();
-    if (state.timeLeft <= 0) endGame(false);
+    if (state.timeLeft <= 0) gameOver();
   }
 }
 
@@ -235,7 +394,7 @@ function showScorePop(el, text) {
 }
 
 /* =========================================================
-   お題・残りリスト表示
+   お題・残りリスト
    ========================================================= */
 function renderRemaining() {
   const list = $("remaining-list");
@@ -278,6 +437,8 @@ function clearHint() {
    HUD・タイマー
    ========================================================= */
 function updateHud() {
+  const tag = state.world === "back" ? "裏 " : "";
+  $("stage").textContent = tag + state.stage + " / " + STAGE_COUNT;
   $("score").textContent = state.score;
   $("time").textContent = state.timeLeft;
   $("found-count").textContent = state.foundTotal + " / " + state.targetTotal;
@@ -288,98 +449,165 @@ function startTimer() {
   state.timerId = setInterval(() => {
     if (!state.running) return;
     state.timeLeft--;
-    // 今の探し物の経過時間。40秒でヒントを出す
     state.hintSec++;
     if (!state.hintActive && state.hintSec >= HINT_AFTER) activateHint();
     if (state.timeLeft <= 5 && state.timeLeft > 0) sound.tick();
     updateHud();
-    if (state.timeLeft <= 0) endGame(false);
+    if (state.timeLeft <= 0) gameOver();
   }, 1000);
 }
 
 /* =========================================================
-   開始・終了
+   画面の出し入れ
    ========================================================= */
-function startGame() {
-  getCtx();
-  const cfg = DIFFICULTY[state.diff];
-  state.score = 0;
-  state.combo = 0;
-  state.timeLeft = cfg.time;
-  state.hintSec = 0;
-  state.hintActive = false;
-  state.running = true;
-
+function showPlayUI() {
   startScreen.classList.add("hidden");
+  stageSelectScreen.classList.add("hidden");
+  stageClearScreen.classList.add("hidden");
   resultScreen.classList.add("hidden");
   hud.classList.remove("hidden");
   promptBar.classList.remove("hidden");
   field.classList.remove("hidden");
+}
+function hidePlayUI() {
+  hud.classList.add("hidden");
+  promptBar.classList.add("hidden");
+  field.classList.add("hidden");
+}
+/* プレイを完全に止める（タイマー・うごき） */
+function stopPlay() {
+  state.running = false;
+  clearInterval(state.timerId);
+  stopMotion();
+  hidePlayUI();
+}
 
+/* =========================================================
+   ステージ進行
+   ========================================================= */
+function startStage() {
+  state.score = 0;
+  state.combo = 0;
+  state.timeLeft = getConfig(state.world, state.stage).time;
+  state.hintSec = 0;
+  state.hintActive = false;
+  state.running = true;
+
+  showPlayUI();
   clearHint();
+  setStageBackground(state.stage, state.world);
   buildBoard();
   updateHud();
   startTimer();
 }
 
-function endGame(cleared) {
+function stageComplete() {
   state.running = false;
   clearInterval(state.timerId);
+  stopMotion();
 
-  let bonus = 0;
-  if (cleared) {
-    bonus = state.timeLeft * 10;
-    state.score += bonus;
-    sound.clear();
-  } else {
-    sound.over();
-  }
+  const bonus = state.timeLeft * 10;
+  state.score += bonus;
 
+  const p = wp(state.world);
+  if (!p.cleared.includes(state.stage)) p.cleared.push(state.stage);
+  if (state.stage < STAGE_COUNT) p.unlocked = Math.max(p.unlocked, state.stage + 1);
+  // 表を全クリア → 裏を解放
+  if (state.world === "front" && state.stage === STAGE_COUNT) state.progress.backOpen = true;
+  saveProgress();
+
+  if (state.stage >= STAGE_COUNT) { gameWin(); return; }
+
+  sound.clear();
   setTimeout(() => {
-    hud.classList.add("hidden");
-    promptBar.classList.add("hidden");
-    field.classList.add("hidden");
+    hidePlayUI();
+    stageClearScreen.classList.remove("hidden");
+    const tag = state.world === "back" ? "裏ステージ " : "ステージ ";
+    $("stage-clear-title").textContent = "🎊 " + tag + state.stage + " クリア！";
+    $("stage-clear-score").textContent = state.score;
+    $("stage-clear-bonus").textContent = "+" + bonus;
+    $("stage-clear-message").textContent =
+      tag + (state.stage + 1) + " が あそべるように なったよ！";
+  }, 500);
+}
+
+function continueStage() {
+  if (state.stage < STAGE_COUNT) {
+    state.stage++;
+    startStage();
+  } else {
+    goToSelect();
+  }
+}
+
+function replayStage() {
+  startStage();
+}
+
+function gameWin() {
+  sound.win();
+  setTimeout(() => {
+    hidePlayUI();
     resultScreen.classList.remove("hidden");
-
-    $("result-title").textContent = cleared ? "🎉 ぜんぶ みつけた！" : "⏰ タイムアップ！";
+    if (state.world === "front") {
+      $("result-title").textContent = "🏆 おもて ぜんぶ クリア！";
+      $("result-message").textContent = "うらステージ が かいほうされた！ えらぶ画面で あそべるよ 👻";
+    } else {
+      $("result-title").textContent = "👑 うらも ぜんぶ クリア！";
+      $("result-message").textContent = "かんぺき せいは！ ほんとうに すごい！ 🎉🎉";
+    }
     $("result-score").textContent = state.score;
-    $("result-found").textContent = state.foundTotal + " / " + state.targetTotal;
+    $("result-stat2-label").textContent = "クリア";
+    $("result-stat2").textContent = STAGE_COUNT + " / " + STAGE_COUNT;
+  }, 600);
+}
 
-    let msg;
-    if (cleared) msg = "クリア！ じかんボーナス +" + bonus + " てん 🌟";
-    else if (state.foundTotal === 0) msg = "つぎは みつけられるよ！ がんばって 💪";
-    else if (state.foundTotal >= state.targetTotal / 2) msg = "おしい！ あと " + (state.targetTotal - state.foundTotal) + "こ だったね 🔥";
-    else msg = "もういちど チャレンジ！ 🍀";
-    $("result-message").textContent = msg;
-  }, cleared ? 600 : 300);
+function gameOver() {
+  state.running = false;
+  clearInterval(state.timerId);
+  stopMotion();
+  sound.over();
+  setTimeout(() => {
+    hidePlayUI();
+    resultScreen.classList.remove("hidden");
+    $("result-title").textContent = "⏰ タイムアップ！";
+    $("result-score").textContent = state.score;
+    $("result-stat2-label").textContent = "ステージ";
+    const tag = state.world === "back" ? "裏 " : "";
+    $("result-stat2").textContent = tag + state.stage + " / " + STAGE_COUNT;
+    $("result-message").textContent = "このステージを もういちど チャレンジ！ 🍀";
+  }, 300);
 }
 
 /* =========================================================
-   画面遷移・ボタン
+   ボタン
    ========================================================= */
 function goHome() {
-  state.running = false;
-  clearInterval(state.timerId);
-  hud.classList.add("hidden");
-  promptBar.classList.add("hidden");
-  field.classList.add("hidden");
+  stopPlay();
+  stageSelectScreen.classList.add("hidden");
+  stageClearScreen.classList.add("hidden");
   resultScreen.classList.add("hidden");
   startScreen.classList.remove("hidden");
 }
 
-document.querySelectorAll(".diff-btn").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    state.diff = btn.dataset.diff;
-    document.querySelectorAll(".diff-btn").forEach((b) => b.classList.remove("selected"));
-    btn.classList.add("selected");
-  });
+$("start-btn").addEventListener("click", () => { getCtx(); goToSelect(); });
+$("select-back-btn").addEventListener("click", goHome);
+$("tab-front").addEventListener("click", () => { state.selectWorld = "front"; renderStageSelect(); });
+$("tab-back").addEventListener("click", () => {
+  if (!state.progress.backOpen) return;
+  state.selectWorld = "back";
+  renderStageSelect();
 });
-$("start-btn").addEventListener("click", startGame);
-$("retry-btn").addEventListener("click", startGame);
-$("home-btn").addEventListener("click", goHome);
+$("next-stage-btn").addEventListener("click", continueStage);
+$("stage-clear-select-btn").addEventListener("click", goToSelect);
+$("retry-btn").addEventListener("click", replayStage);
+$("home-btn").addEventListener("click", goToSelect);
 $("quit-btn").addEventListener("click", () => {
-  if (confirm("ゲームを やめて タイトルに もどる？")) goHome();
+  if (confirm("ゲームを やめて ステージせんたくに もどる？")) goToSelect();
 });
+
+/* ---------- 起動時 ---------- */
+loadProgress();
 
 /*
   ※ オブジェクトは「% 座標 + vmin サイズ」で配置しているため、
