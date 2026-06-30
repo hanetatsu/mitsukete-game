@@ -12,6 +12,10 @@
     <!-- ===== ヘッダー（ゲーム中のHUD） ===== -->
     <header id="hud" class="hidden">
       <div class="hud-item">
+        <span class="hud-label">ステージ</span>
+        <span id="stage" class="hud-value">1 / 10</span>
+      </div>
+      <div class="hud-item">
         <span class="hud-label">スコア</span>
         <span id="score" class="hud-value">0</span>
       </div>
@@ -45,33 +49,52 @@
     <div id="start-screen" class="overlay">
       <div class="panel">
         <h1 class="title">🔍 みつけてゲーム！</h1>
-        <p class="subtitle">お題のものを じかんないに さがしてクリック！</p>
 
-        <p class="section-label">なんいどを えらんでね</p>
-        <div class="difficulty-group">
-          <button class="diff-btn selected" data-diff="easy">
-            <span class="diff-emoji">🟢</span>
-            <span class="diff-name">しょきゅう</span>
-            <span class="diff-desc">大きくて さがしやすい</span>
-          </button>
-          <button class="diff-btn" data-diff="normal">
-            <span class="diff-emoji">🟡</span>
-            <span class="diff-name">ちゅうきゅう</span>
-            <span class="diff-desc">小さく ふえる</span>
-          </button>
-          <button class="diff-btn" data-diff="hard">
-            <span class="diff-emoji">🔴</span>
-            <span class="diff-name">じょうきゅう</span>
-            <span class="diff-desc">たくさん＆まぎれる</span>
-          </button>
+        <div class="info-box">
+          <p>ぜんぶで <b>10ステージ</b>！</p>
         </div>
 
-        <button id="start-btn" class="big-btn">▶ スタート</button>
-        <p class="hint">ヒント：まちがえると じかんが すこし へるよ！</p>
+        <button id="start-btn" class="big-btn">▶ ステージを えらぶ</button>
       </div>
     </div>
 
-    <!-- ===== 結果画面 ===== -->
+    <!-- ===== ステージ選択画面 ===== -->
+    <div id="stage-select-screen" class="overlay hidden">
+      <div class="panel">
+        <h1 class="title">🗺️ ステージを えらぶ</h1>
+        <div id="world-tabs">
+          <button id="tab-front" class="tab-btn selected">おもて</button>
+          <button id="tab-back" class="tab-btn" disabled>うら 🔒</button>
+        </div>
+        <div id="stage-grid"></div>
+        <p class="hint">クリアすると つぎのステージが あそべるよ！</p>
+        <button id="select-back-btn" class="big-btn secondary">← タイトルへ</button>
+      </div>
+    </div>
+
+    <!-- ===== ステージクリア画面 ===== -->
+    <div id="stage-clear-screen" class="overlay hidden">
+      <div class="panel">
+        <h1 id="stage-clear-title" class="title">🎊 ステージ クリア！</h1>
+        <div class="result-stats">
+          <div class="stat">
+            <span class="stat-label">スコア</span>
+            <span id="stage-clear-score" class="stat-value">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">タイムボーナス</span>
+            <span id="stage-clear-bonus" class="stat-value">0</span>
+          </div>
+        </div>
+        <p id="stage-clear-message" class="result-message"></p>
+        <div class="result-buttons">
+          <button id="next-stage-btn" class="big-btn">つぎのステージへ ▶</button>
+          <button id="stage-clear-select-btn" class="big-btn secondary">🗺️ ステージせんたく</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 結果画面（ゲームオーバー／全クリア） ===== -->
     <div id="result-screen" class="overlay hidden">
       <div class="panel">
         <h1 id="result-title" class="title">けっか</h1>
@@ -81,14 +104,14 @@
             <span id="result-score" class="stat-value">0</span>
           </div>
           <div class="stat">
-            <span class="stat-label">みつけた数</span>
-            <span id="result-found" class="stat-value">0</span>
+            <span class="stat-label" id="result-stat2-label">とうたつ</span>
+            <span id="result-stat2" class="stat-value">0</span>
           </div>
         </div>
         <p id="result-message" class="result-message"></p>
         <div class="result-buttons">
           <button id="retry-btn" class="big-btn">🔄 もういちど</button>
-          <button id="home-btn" class="big-btn secondary">🏠 タイトルへ</button>
+          <button id="home-btn" class="big-btn secondary">🗺️ ステージせんたく</button>
         </div>
       </div>
     </div>
